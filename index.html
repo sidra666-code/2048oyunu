@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0"/>
+  <title>2048 Oyunu</title>
+  <style>
+    * { touch-action: manipulation; }
+    body {
+      font-family: Arial, sans-serif;
+      background: #faf8ef;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      height: 100vh;
+      overflow: hidden;
+    }
+    .top-bar {
+      width: 100%;
+      padding: 10px;
+      text-align: center;
+      background-color: #eee4da;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    }
+    button {
+      background-color: #8f7a66;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      font-size: 16px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #a58d7b;
+    }
+    .game-container {
+      text-align: center;
+      margin-top: 10px;
+    }
+    h1 {
+      font-size: 48px;
+      color: #776e65;
+      margin: 10px 0;
+    }
+    .score {
+      font-size: 20px;
+      margin-bottom: 10px;
+      color: #776e65;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(4, 80px);
+      grid-gap: 10px;
+      background: #bbada0;
+      padding: 10px;
+      border-radius: 10px;
+    }
+    .tile {
+      width: 80px;
+      height: 80px;
+      background: #cdc1b4;
+      border-radius: 5px;
+      font-size: 24px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-weight: bold;
+      color: #776e65;
+      transition: all 0.2s ease-in-out;
+    }
+    .tile-2 { background: #eee4da; }
+    .tile-4 { background: #ede0c8; }
+    .tile-8 { background: #f2b179; color: #f9f6f2; }
+    .tile-16 { background: #f59563; color: #f9f6f2; }
+    .tile-32 { background: #f67c5f; color: #f9f6f2; }
+    .tile-64 { background: #f65e3b; color: #f9f6f2; }
+    .tile-128 { background: #edcf72; color: #f9f6f2; }
+    .tile-256 { background: #edcc61; color: #f9f6f2; }
+    .tile-512 { background: #edc850; color: #f9f6f2; }
+    .tile-1024 { background: #edc53f; color: #f9f6f2; }
+    .tile-2048 { background: #edc22e; color: #f9f6f2; }
+    .message {
+      margin-top: 10px;
+      font-size: 22px;
+      color: red;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div class="top-bar">
+    <button onclick="restartGame()">Yeniden Başla</button>
+  </div>
+
+  <div class="game-container">
+    <h1>2048</h1>
+    <div class="score">Skor: <span id="score">0</span></div>
+    <div class="grid" id="grid"></div>
+    <div id="message" class="message"></div>
+  </div>
+
+  <audio id="move-sound" src="a.mp3" preload="auto"></audio>
+
+  <script>
+    const grid = document.getElementById("grid");
+    const scoreDisplay = document.getElementById("score");
+    const messageDisplay = document.getElementById("message");
+    const moveSound = document.getElementById("move-sound");
+    let tiles = [];
+    let score = 0;
+    let gameOver = false;
+
+    function createBoard() {
+      grid.innerHTML = "";
+      tiles = [];
+      for (let i = 0; i < 16; i++) {
+        const tile = document.createElement("div");
+        tile.classList.add("tile");
+        tile.innerText = "";
+        grid.appendChild(tile);
+        tiles.push(tile);
+      }
+      generateTile();
+      generateTile();
+      score = 0;
+      gameOver = false;
+      scoreDisplay.innerText = score;
+      messageDisplay.innerText = "";
+    }
+
+    function getTileValue(i) {
+      return parseInt(tiles[i].innerText) || 0;
+    }
+
+    function setTile(i, val) {
+      tiles[i].innerText = val > 0 ? val : "";
+      tiles[i].className = "tile";
+      if (val) tiles[i].classList.add("tile-" + val);
+    }
+
+    function generateTile() {
+      if (gameOver) return;
+      let empty = tiles.map((_, i) => i).filter(i => getTileValue(i) === 0);
+      if (empty.length === 0) return;
+      let rand = empty[Math.floor(Math.random() * empty.length)];
+      setTile(rand, Math.random() > 0.1 ? 2 : 4);
+      if (isGameOver()) {
+        gameOver = true;
+        messageDisplay.innerText = "Kaybettiniz!";
+      }
+    }
+
+    function move(direction) {
+      if (gameOver) return;
+      let moved = false;
+      for (let i = 0; i < 4; i++) {
+        let line = [];
+        for (let j = 0; j < 4; j++) {
+          let index = direction === "left" ? (i * 4 + j)
+                    : direction === "right" ? (i * 4 + (3 - j))
+                    : direction === "up" ? (j * 4 + i)
+                    : (3 - j) * 4 + i;
+          line.push(getTileValue(index));
+        }
+
+        let filtered = line.filter(x => x);
+        for (let j = 0; j < filtered.length - 1; j++) {
+          if (filtered[j] === filtered[j + 1]) {
+            filtered[j] *= 2;
+            score += filtered[j];
+            filtered[j + 1] = 0;
+          }
+        }
+
+        let newLine = filtered.filter(x => x);
+        while (newLine.length < 4) newLine.push(0);
+
+        for (let j = 0; j < 4; j++) {
+          let index = direction === "left" ? (i * 4 + j)
+                    : direction === "right" ? (i * 4 + (3 - j))
+                    : direction === "up" ? (j * 4 + i)
+                    : (3 - j) * 4 + i;
+          if (getTileValue(index) !== newLine[j]) moved = true;
+          setTile(index, newLine[j]);
+        }
+      }
+
+      if (moved) {
+        generateTile();
+        scoreDisplay.innerText = score;
+        moveSound.currentTime = 0;
+        moveSound.play();
+      }
+    }
+
+    function isGameOver() {
+      for (let i = 0; i < 16; i++) {
+        if (getTileValue(i) === 0) return false;
+        let row = Math.floor(i / 4), col = i % 4;
+        if (col < 3 && getTileValue(i) === getTileValue(i + 1)) return false;
+        if (row < 3 && getTileValue(i) === getTileValue(i + 4)) return false;
+      }
+      return true;
+    }
+
+    function restartGame() {
+      createBoard();
+    }
+
+    let startX, startY;
+
+    document.addEventListener("touchstart", function (e) {
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+    });
+
+    document.addEventListener("touchend", function (e) {
+      let endX = e.changedTouches[0].clientX;
+      let endY = e.changedTouches[0].clientY;
+      let dx = endX - startX;
+      let dy = endY - startY;
+
+      if (Math.abs(dx) > Math.abs(dy)) {
+        if (dx > 30) move("right");
+        else if (dx < -30) move("left");
+      } else {
+        if (dy > 30) move("down");
+        else if (dy < -30) move("up");
+      }
+    });
+
+    document.addEventListener("gesturestart", (e) => e.preventDefault());
+    document.addEventListener("gesturechange", (e) => e.preventDefault());
+    document.addEventListener("gestureend", (e) => e.preventDefault());
+    document.addEventListener("wheel", e => {
+      if (e.ctrlKey) e.preventDefault();
+    }, { passive: false });
+
+    createBoard();
+  </script>
+</body>
+</html>
